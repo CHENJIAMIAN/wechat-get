@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 
-const WeChatGetSimple = require('../wechat-get-simple.js');
+const WeChatScraper = require('../src/index.js');
 
 // 运行CLI（简化版命令）
 if (require.main === module) {
-  const cli = new WeChatGetSimple();
+  const cli = new WeChatScraper();
   cli.run().catch(error => {
     console.error('Fatal error:', error);
     process.exit(1);
