@@ -5,6 +5,7 @@ try {
 } catch (e) {
   cheerio = null;
 }
+const WeChatFormatter = require('./formatter.js');
 
 /**
  * 微信文章获取器 - 核心引擎
@@ -180,7 +181,7 @@ class WeChatScraper {
   }
 
   /**
-   * 生成Markdown格式
+   * 生成Markdown格式 - 改进版
    */
   generateMarkdown(result, url) {
     // 清理内容中的HTML实体和特殊字符
@@ -194,21 +195,8 @@ class WeChatScraper {
       .replace(/&#(\d+);/g, (match, dec) => String.fromCharCode(dec))
       .replace(/&#x([0-9a-fA-F]+);/g, (match, hex) => String.fromCharCode(parseInt(hex, 16)));
 
-    // 处理段落和换行
-    const processedContent = cleanContent
-      .split('\n\n')
-      .map(paragraph => {
-        const trimmed = paragraph.trim();
-        if (!trimmed) return '';
-        if (trimmed.length < 50) return trimmed;
-        const lines = trimmed.split('\n');
-        if (lines.length > 3) {
-          return lines.map(line => line.trim()).join('\n');
-        }
-        return trimmed;
-      })
-      .filter(line => line.length > 0)
-      .join('\n\n');
+    // 使用改进的格式化器
+    const processedContent = WeChatFormatter.format(cleanContent);
 
     const timestamp = new Date().toISOString().split('T')[0];
 
@@ -234,7 +222,7 @@ ${processedContent}
 
 ---
 
-**🔧 由 [wechat-get](https://www.npmjs.com/package/wechat-get) 工具生成**
+**🔧 由 [wechat-get](https://www.npmjs.com/package/wechat-get) 工具生成 v1.1.0**
 **💡 获取公众号文章，突破验证限制，获取完整原文**`;
 
     return markdown;
