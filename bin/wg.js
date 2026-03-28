@@ -2,10 +2,33 @@
 
 const WeChatScraper = require('../src/index.js');
 
-// 运行CLI（简化版命令）
+function printUsage() {
+  console.log('Usage: wg <url>');
+}
+
+async function main() {
+  const args = process.argv.slice(2);
+  const url = args[0];
+
+  if (!url || url.startsWith('-')) {
+    printUsage();
+    process.exit(1);
+  }
+
+  const scraper = new WeChatScraper();
+  const result = await scraper.getArticle(url);
+
+  if (!result.success) {
+    console.error(result.content);
+    process.exit(1);
+  }
+
+  const markdown = scraper.generateMarkdown(result, url);
+  console.log(markdown);
+}
+
 if (require.main === module) {
-  const cli = new WeChatScraper();
-  cli.run().catch(error => {
+  main().catch(error => {
     console.error('Fatal error:', error);
     process.exit(1);
   });

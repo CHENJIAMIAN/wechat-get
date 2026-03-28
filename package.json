@@ -1,0 +1,43 @@
+{
+  "name": "wechat-get",
+  "version": "1.1.2",
+  "description": "微信文章获取工具，支持批量抓取与 Markdown 输出",
+  "main": "src/index.js",
+  "bin": {
+    "wechat-get": "bin/wechat-get.js",
+    "wg": "bin/wg.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "start": "node bin/wechat-get.js"
+  },
+  "keywords": [
+    "wechat",
+    "weixin",
+    "crawler",
+    "scraper",
+    "cli"
+  ],
+  "author": "CHENJIAMIAN <571574085@qq.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CHENJIAMIAN/wechat-get.git"
+  },
+  "bugs": {
+    "url": "https://github.com/CHENJIAMIAN/wechat-get/issues"
+  },
+  "homepage": "https://github.com/CHENJIAMIAN/wechat-get#readme",
+  "engines": {
+    "node": ">=14"
+  },
+  "dependencies": {
+    "axios": "^1.12.2",
+    "cheerio": "^1.1.2"
+  }
+}

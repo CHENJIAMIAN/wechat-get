@@ -35,6 +35,8 @@ Thumbs.db
 wechat_articles/
 *.json
 *.txt
+!package.json
+!package-lock.json
 
 # Temporary files
 tmp/

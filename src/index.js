@@ -5,11 +5,9 @@ try {
 } catch (e) {
   cheerio = null;
 }
+
 const WeChatFormatter = require('./formatter.js');
 
-/**
- * 微信文章获取器 - 核心引擎
- */
 class WeChatScraper {
   constructor(options = {}) {
     this.options = {
@@ -19,7 +17,6 @@ class WeChatScraper {
       ...options
     };
 
-    // 创建axios实例
     this.client = axios.create({
       timeout: this.options.timeout,
       headers: this.getHeaders(),
@@ -30,202 +27,147 @@ class WeChatScraper {
   getHeaders() {
     return {
       'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MicroMessenger/8.0.42(0x18002a2c) NetType/WIFI Language/zh_CN',
-      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
+      Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
       'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
       'Accept-Encoding': 'gzip, deflate, br',
-      'Connection': 'keep-alive',
-      'Upgrade-Insecure-Requests': '1',
-      'Sec-Fetch-Dest': 'document',
-      'Sec-Fetch-Mode': 'navigate',
-      'Sec-Fetch-Site': 'none',
-      'Sec-Fetch-User': '?1',
-      'Origin': 'https://mp.weixin.qq.com',
-      'Referer': 'https://mp.weixin.qq.com/'
+      Connection: 'keep-alive',
+      Referer: 'https://mp.weixin.qq.com/'
     };
   }
 
-  delay(ms = null) {
-    const delayTime = ms || this.options.delay + Math.random() * 2000;
-    return new Promise(resolve => setTimeout(resolve, delayTime));
+  sleep(ms = null) {
+    const waitMs = ms || this.options.delay + Math.floor(Math.random() * 1200);
+    return new Promise((resolve) => setTimeout(resolve, waitMs));
   }
 
   async simulateBrowser() {
     try {
-      // 访问主页
       await this.client.get('https://mp.weixin.qq.com');
-      await this.delay(1000 + Math.random() * 2000);
-    } catch (error) {
-      // 忽略主页访问错误
-    }
-  }
-
-  extractContent(html) {
-    try {
-      const $ = cheerio.load(html);
-
-      // 提取标题
-      let title = '';
-      const titleMeta = $('meta[property="og:title"]').first();
-      if (titleMeta.length) {
-        title = titleMeta.attr('content');
-      }
-
-      if (!title) {
-        const titleElement = $('h1.rich_media_title').first();
-        if (titleElement.length) {
-          title = titleElement.text().trim();
-        }
-      }
-
-      // 提取内容
-      let content = '';
-      const contentElement = $('#js_content, .rich_media_content').first();
-
-      if (contentElement.length) {
-        // 清理HTML并保留文本
-        content = contentElement.text() || contentElement.html();
-        content = content
-          .replace(/<[^>]+>/g, '\n')
-          .replace(/\n{3,}/g, '\n\n')
-          .trim();
-      }
-
-      return {
-        title: title || '未获取到标题',
-        content: content || '未获取到内容',
-        success: !!(title && content)
-      };
-
-    } catch (error) {
-      return {
-        title: '解析错误',
-        content: `内容解析失败: ${error.message}`,
-        success: false
-      };
+      await this.sleep(800);
+    } catch (_) {
+      // Ignore warm-up failures.
     }
   }
 
   isVerificationPage(html) {
-    const verificationKeywords = ['验证页面', 'verification', '环境异常', 'antispam'];
-    const lowerHtml = html.toLowerCase();
-    return verificationKeywords.some(keyword =>
-      lowerHtml.includes(keyword.toLowerCase())
-    );
+    const lowerHtml = String(html || '').toLowerCase();
+    const markers = [
+      'verification',
+      'antispam',
+      'secitptpage/verify',
+      "page_mid='mmbizwap:secitptpage/verify.html'",
+      "seajs.use('secitptpage/template/verify.js')"
+    ];
+    return markers.some((m) => lowerHtml.includes(m));
+  }
+
+  extractContent(html) {
+    if (!html || typeof html !== 'string') {
+      return { title: 'Parse error', content: 'Empty html response', success: false };
+    }
+
+    if (cheerio) {
+      try {
+        const $ = cheerio.load(html);
+
+        let title = $('meta[property="og:title"]').attr('content') || '';
+        if (!title) title = $('h1.rich_media_title').first().text().trim();
+        if (!title) title = $('title').first().text().trim();
+
+        let content = $('#js_content').first().text().trim();
+        if (!content) content = $('.rich_media_content').first().text().trim();
+
+        return {
+          title: title || 'Untitled',
+          content: content || 'No content extracted',
+          success: Boolean(title && content)
+        };
+      } catch (error) {
+        return { title: 'Parse error', content: error.message, success: false };
+      }
+    }
+
+    const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+    const title = titleMatch ? titleMatch[1].trim() : '';
+    return {
+      title: title || 'Untitled',
+      content: 'Cheerio is not available',
+      success: false
+    };
   }
 
   async getArticle(url) {
-    console.log(`🎯 正在获取: ${url}`);
+    console.log(`Fetching: ${url}`);
 
     try {
-      // 模拟浏览器行为
       await this.simulateBrowser();
 
-      // 获取文章页面
-      const response = await this.client.get(url);
-      const html = response.data;
-
-      // 检查是否是验证页面
+      let html = (await this.client.get(url)).data;
       if (this.isVerificationPage(html)) {
-        console.log('🔒 检测到验证页面，尝试突破...');
-
-        // 尝试多次突破
-        for (let i = 0; i < 3; i++) {
-          await this.delay(2000);
-          const retryResponse = await this.client.get(url);
-          const retryHtml = retryResponse.data;
-
-          if (!this.isVerificationPage(retryHtml)) {
-            console.log('✅ 突破成功！');
-            return this.extractContent(retryHtml);
-          }
+        for (let i = 0; i < this.options.retryCount; i += 1) {
+          await this.sleep(1500);
+          html = (await this.client.get(url)).data;
+          if (!this.isVerificationPage(html)) break;
         }
+      }
 
-        console.log('❌ 突破失败');
+      if (this.isVerificationPage(html)) {
         return {
-          title: '验证页面',
-          content: '无法突破微信验证页面',
+          title: 'Verification page',
+          content: 'Blocked by WeChat verification page',
           success: false
         };
       }
 
-      // 提取内容
       return this.extractContent(html);
-
     } catch (error) {
-      console.log(`❌ 获取失败: ${error.message}`);
       return {
-        title: '获取失败',
-        content: `错误: ${error.message}`,
+        title: 'Fetch failed',
+        content: `Error: ${error.message}`,
         success: false
       };
     }
   }
 
   async getMultipleArticles(urls, options = {}) {
+    const delayMs = options.delay || 3000;
     const results = [];
-    const { delay = 3000 } = options;
 
-    for (let i = 0; i < urls.length; i++) {
+    for (let i = 0; i < urls.length; i += 1) {
       const url = urls[i];
-      console.log(`📊 进度: ${i + 1}/${urls.length}`);
-
       const result = await this.getArticle(url);
       results.push({ url, result });
-
-      if (i < urls.length - 1) {
-        await this.delay(delay);
-      }
+      if (i < urls.length - 1) await this.sleep(delayMs);
     }
 
     return results;
   }
 
-  /**
-   * 生成Markdown格式 - 改进版
-   */
   generateMarkdown(result, url) {
-    // 清理内容中的HTML实体和特殊字符
-    const cleanContent = result.content
+    const cleanContent = String(result.content || '')
       .replace(/&nbsp;/g, ' ')
       .replace(/&lt;/g, '<')
       .replace(/&gt;/g, '>')
       .replace(/&amp;/g, '&')
       .replace(/&quot;/g, '"')
       .replace(/&#39;/g, "'")
-      .replace(/&#(\d+);/g, (match, dec) => String.fromCharCode(dec))
-      .replace(/&#x([0-9a-fA-F]+);/g, (match, hex) => String.fromCharCode(parseInt(hex, 16)));
+      .replace(/&#(\d+);/g, (_, dec) => String.fromCharCode(Number(dec)))
+      .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
 
-    // 使用改进的格式化器
     const processedContent = WeChatFormatter.format(cleanContent);
-
     const timestamp = new Date().toISOString().split('T')[0];
 
-    let markdown = `# ${result.title}
+    return `# ${result.title}
 
-> 📅 获取时间: ${timestamp}
-> 🔗 原文链接: [点击查看原文](${url || ''})
+> Fetch time: ${timestamp}
+> Source: ${url || ''}
 
 ---
 
-## 📖 文章内容
+## Content
 
 ${processedContent}
-
----
-
-## 📊 元数据
-
-- **标题**: ${result.title}
-- **获取时间**: ${timestamp}
-- **内容长度**: ${result.content.length} 字符
-- **格式**: Markdown
-
----
-
-**🔧 由 [wechat-get](https://www.npmjs.com/package/wechat-get) 工具生成 v1.1.0**
-**💡 获取公众号文章，突破验证限制，获取完整原文**`;
-
-    return markdown;
+`;
   }
 }
 
