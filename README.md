@@ -1,3 +1,11 @@
+[English](./README.en.md)
+
+<!-- codex-github-rules:bilingual-summary -->
+> **中文简介**：绕过验证限制并获取完整原文的微信文章工具
+>
+> **English summary**: A tool for retrieving complete WeChat articles despite verification restrictions
+
+---
 # 🚀 wechat-get - 微信文章获取工具
 
 [![npm version](https://badge.fury.io/js/wechat-get.svg)](https://badge.fury.io/js/wechat-get)
